@@ -1,0 +1,319 @@
+{
+  "generated": "2026-11-11T21:43:38+00:00",
+  "experiments": {
+    "A": {
+      "folder": "exp A",
+      "trials": [
+        {
+          "id": "A:A105_a_person_stretches_after_waking_up_s3456__left-Kimodo__right-LTX_GVHMR0000-0299",
+          "src": "exp A/A105_a_person_stretches_after_waking_up_s3456__left-Kimodo__right-LTX_GVHMR0000-0299.mp4",
+          "promptId": "A105",
+          "prompt": "A person stretches after waking up.",
+          "seed": 3456,
+          "k": null,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "A:A1273_a_person_dribbles_a_soccer_ball_while_running_s3456__left-Kimodo__right-LTX_GVHMR0000-0299",
+          "src": "exp A/A1273_a_person_dribbles_a_soccer_ball_while_running_s3456__left-Kimodo__right-LTX_GVHMR0000-0299.mp4",
+          "promptId": "A1273",
+          "prompt": "A person dribbles a soccer ball while running.",
+          "seed": 3456,
+          "k": null,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "A:A1416_a_person_walks_to_a_ladder_climbs_up_and_sits_at_t_s3456__left-Kimodo__right-LTX_GVHMR0000-0299",
+          "src": "exp A/A1416_a_person_walks_to_a_ladder_climbs_up_and_sits_at_t_s3456__left-Kimodo__right-LTX_GVHMR0000-0299.mp4",
+          "promptId": "A1416",
+          "prompt": "A person walks to a ladder, climbs up, and sits at the top.",
+          "seed": 3456,
+          "k": null,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "A:A192_a_person_sweeps_the_floor_with_a_broom_s1234__left-LTX_GVHMR__right-Kimodo0000-0299",
+          "src": "exp A/A192_a_person_sweeps_the_floor_with_a_broom_s1234__left-LTX_GVHMR__right-Kimodo0000-0299.mp4",
+          "promptId": "A192",
+          "prompt": "A person sweeps the floor with a broom.",
+          "seed": 1234,
+          "k": null,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "A:A228_a_person_swings_a_tennis_racket_s1234__left-Kimodo__right-LTX_GVHMR0000-0299",
+          "src": "exp A/A228_a_person_swings_a_tennis_racket_s1234__left-Kimodo__right-LTX_GVHMR0000-0299.mp4",
+          "promptId": "A228",
+          "prompt": "A person swings a tennis racket.",
+          "seed": 1234,
+          "k": null,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "A:A278_a_person_juggles_three_balls_s1234__left-LTX_GVHMR__right-Kimodo0000-0299",
+          "src": "exp A/A278_a_person_juggles_three_balls_s1234__left-LTX_GVHMR__right-Kimodo0000-0299.mp4",
+          "promptId": "A278",
+          "prompt": "A person juggles three balls.",
+          "seed": 1234,
+          "k": null,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "A:A344_a_person_marches_in_place_while_clapping_s1234__left-LTX_GVHMR__right-Kimodo0000-0299",
+          "src": "exp A/A344_a_person_marches_in_place_while_clapping_s1234__left-LTX_GVHMR__right-Kimodo0000-0299.mp4",
+          "promptId": "A344",
+          "prompt": "A person marches in place while clapping.",
+          "seed": 1234,
+          "k": null,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "A:A466_a_person_walks_forward_with_the_arms_out_like_airp_s3456__left-LTX_GVHMR__right-Kimodo0000-0299",
+          "src": "exp A/A466_a_person_walks_forward_with_the_arms_out_like_airp_s3456__left-LTX_GVHMR__right-Kimodo0000-0299.mp4",
+          "promptId": "A466",
+          "prompt": "A person walks forward with the arms out like airplane wings.",
+          "seed": 3456,
+          "k": null,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        }
+      ]
+    },
+    "B": {
+      "folder": "exp B",
+      "trials": [
+        {
+          "id": "B:A017_a_person_twists_the_torso_left_and_right_s3456_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp B/A017_a_person_twists_the_torso_left_and_right_s3456_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A017",
+          "prompt": "A person twists the torso left and right.",
+          "seed": 3456,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "B:A138_a_person_mimes_a_golf_swing_s1234_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp B/A138_a_person_mimes_a_golf_swing_s1234_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A138",
+          "prompt": "A person mimes a golf swing.",
+          "seed": 1234,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "B:A163_a_person_throws_a_hook_punch_s5678_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp B/A163_a_person_throws_a_hook_punch_s5678_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A163",
+          "prompt": "A person throws a hook punch.",
+          "seed": 5678,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "B:A163_a_person_throws_a_hook_punch_s5678_k8__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp B/A163_a_person_throws_a_hook_punch_s5678_k8__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A163",
+          "prompt": "A person throws a hook punch.",
+          "seed": 5678,
+          "k": 8,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "B:A308_a_person_squats_down_while_clapping_s1234_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp B/A308_a_person_squats_down_while_clapping_s1234_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A308",
+          "prompt": "A person squats down while clapping.",
+          "seed": 1234,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "B:A616_a_person_lunges_forward_while_punching_with_the_op_s1234_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp B/A616_a_person_lunges_forward_while_punching_with_the_op_s1234_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A616",
+          "prompt": "A person lunges forward while punching with the opposite hand.",
+          "seed": 1234,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "B:A698_a_person_turns_around_then_waves_s1234_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp B/A698_a_person_turns_around_then_waves_s1234_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A698",
+          "prompt": "A person turns around, then waves.",
+          "seed": 1234,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        }
+      ]
+    },
+    "C": {
+      "folder": "exp C",
+      "trials": [
+        {
+          "id": "C:A061_a_person_walks_in_a_circle_s1234_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp C/A061_a_person_walks_in_a_circle_s1234_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A061",
+          "prompt": "A person walks in a circle.",
+          "seed": 1234,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "C:A115_a_person_does_a_burpee_s1234_k8__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp C/A115_a_person_does_a_burpee_s1234_k8__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A115",
+          "prompt": "A person does a burpee.",
+          "seed": 1234,
+          "k": 8,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "C:A1343_a_person_kicks_forward_then_bows_s1234_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp C/A1343_a_person_kicks_forward_then_bows_s1234_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A1343",
+          "prompt": "A person kicks forward, then bows.",
+          "seed": 1234,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "C:A142_a_person_mimes_jumping_rope_s1234_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp C/A142_a_person_mimes_jumping_rope_s1234_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A142",
+          "prompt": "A person mimes jumping rope.",
+          "seed": 1234,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "C:A143_a_person_mimes_kicking_a_soccer_ball_s9012_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp C/A143_a_person_mimes_kicking_a_soccer_ball_s9012_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A143",
+          "prompt": "A person mimes kicking a soccer ball.",
+          "seed": 9012,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "C:A163_a_person_throws_a_hook_punch_s5678_k5__left-LTX_GVHMR__right-Kimodo",
+          "src": "exp C/A163_a_person_throws_a_hook_punch_s5678_k5__left-LTX_GVHMR__right-Kimodo.mp4",
+          "promptId": "A163",
+          "prompt": "A person throws a hook punch.",
+          "seed": 5678,
+          "k": 5,
+          "left": "LTX_GVHMR",
+          "right": "Kimodo",
+          "leftType": "video",
+          "rightType": "motion",
+          "keyframes": null
+        },
+        {
+          "id": "C:A500_a_person_steps_forward_while_throwing_a_straight_p_s1234_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp C/A500_a_person_steps_forward_while_throwing_a_straight_p_s1234_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A500",
+          "prompt": "A person steps forward while throwing a straight punch.",
+          "seed": 1234,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        },
+        {
+          "id": "C:A577_a_person_walks_like_a_zombie_with_the_arms_stretch_s1234_k5__left-Kimodo__right-LTX_GVHMR",
+          "src": "exp C/A577_a_person_walks_like_a_zombie_with_the_arms_stretch_s1234_k5__left-Kimodo__right-LTX_GVHMR.mp4",
+          "promptId": "A577",
+          "prompt": "A person walks like a zombie with the arms stretched forward.",
+          "seed": 1234,
+          "k": 5,
+          "left": "Kimodo",
+          "right": "LTX_GVHMR",
+          "leftType": "motion",
+          "rightType": "video",
+          "keyframes": null
+        }
+      ]
+    }
+  }
+}

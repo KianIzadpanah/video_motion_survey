@@ -1,0 +1,9 @@
+# design mock-ups (not part of the site)
+exp_A.png
+exp_B.png
+exp_C.png
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

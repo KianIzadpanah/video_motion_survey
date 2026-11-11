@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Paste this whole file into Firebase console → Firestore Database → Rules → Publish.
+// Before publishing, replace YOUR_EMAIL@gmail.com with the Google account(s)
+// that should be able to open admin.html (read, export and delete responses).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['YOUR_EMAIL@gmail.com'];
+    }
+
+    match /responses/{responseId} {
+      // Participants: may submit one new response document. They can never
+      // read, change or delete anything (including their own response).
+      allow create: if responseId == request.resource.data.participantId
+        && request.resource.data.participantId is string
+        && request.resource.data.participantId.size() <= 64
+        && request.resource.data.keys().hasAll(['participantId', 'studyVersion', 'trials', 'submittedAt'])
+        && request.resource.data.submittedAt == request.time
+        && request.resource.data.trials is list
+        && request.resource.data.trials.size() > 0
+        && request.resource.data.trials.size() <= 200;
+
+      // You (signed in on admin.html): may read, export and delete responses.
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // Everything else is closed.
+  }
+}
