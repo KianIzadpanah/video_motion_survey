@@ -7,3 +7,7 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# untouched copies of videos before trimming / re-encoding (prepare_videos.py)
+_originals/
+*.__tmp__.mp4

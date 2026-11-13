@@ -21,7 +21,7 @@ export const FIREBASE_CONFIG = {
 export const STUDY = {
   // Bump this (e.g. "v2") if you change the clips or questions after launching,
   // so new responses can be told apart from old ones.
-  studyVersion: "v1",
+  studyVersion: "v2",
 
   // Firestore collection that responses are written to.
   collection: "responses",
@@ -62,8 +62,6 @@ export const STUDY = {
       key: "A",
       title: "Experiment A — Range",
       subtitle: "Prompt-only motion generation",
-      intro:
-        "Each pair was created from the text description alone. Check whether the motion does what the sentence says, looks physically real, and moves smoothly.",
       questions: [
         { id: "match", text: "Which motion better matches the description?" },
         {
@@ -78,8 +76,6 @@ export const STUDY = {
       key: "B",
       title: "Experiment B — Video-to-Motion",
       subtitle: "Sparse keyframe-guided motion reconstruction",
-      intro:
-        "Same task, new clips. This time, also pay attention to whether the movements happen in a sensible order and whether the body parts work together.",
       questions: [
         { id: "match", text: "Which motion better matches the description?" },
         {
@@ -94,8 +90,6 @@ export const STUDY = {
       key: "C",
       title: "Experiment C — Motion-to-Video",
       subtitle: "Video generation conditioned on sparse motion keyframes",
-      intro:
-        "Last part! As before, compare the two animations and check that the order of the movements and the coordination between body parts make sense.",
       questions: [
         { id: "match", text: "Which motion better matches the description?" },
         {

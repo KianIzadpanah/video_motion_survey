@@ -369,25 +369,7 @@ code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-siz
 .nav { display: flex; gap: 10px; align-items: center; }
 .foot-hint { width: 100%; text-align: right; color: var(--muted); font-size: 13.5px; min-height: 1.2em; margin-top: -8px; }
 
-/* ───────────────────────── Section interstitial ───────────────────────── */
-.part {
-  text-align: center; padding: 18px 0 6px;
-}
-.part .badge {
-  display: inline-flex; padding: 6px 14px; border-radius: 999px;
-  background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
-}
-.part h1 { font-size: clamp(28px, 4vw, 40px); margin-top: 14px; }
-.part .sub { font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--ink-2); margin-top: 4px; }
-.part .desc { max-width: 620px; margin: 16px auto 0; color: var(--ink-2); font-size: 17px; }
-.part-qs { max-width: 680px; margin: 26px auto 0; text-align: left; display: grid; gap: 10px; list-style: none; padding: 0; }
-.part-qs li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--card-tint); border: 1px solid var(--line); }
-.part-qs .q-num { width: 30px; height: 30px; font-size: 15px; }
-.part-qs .q-text { font-size: 17px; }
-.parts-track { display: flex; justify-content: center; gap: 8px; margin-top: 26px; }
-.parts-track span { width: 44px; height: 6px; border-radius: 99px; background: #e5e2f6; }
-.parts-track span.done { background: var(--accent-2); }
-.parts-track span.now { background: var(--accent); box-shadow: 0 0 0 3px rgba(108, 92, 231, .18); }
+/* ───────────────────────── Shared rows ───────────────────────── */
 .center-row { display: flex; justify-content: center; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 
 /* ───────────────────────── Finish / done ───────────────────────── */

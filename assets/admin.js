@@ -1,5 +1,6 @@
 import { STUDY } from "../config.js";
 import { firebaseConfigured, getFirestoreKit, getAuthKit } from "./firebase.js";
+import { makePlan, actionGroups, actionKeyOf } from "./plan.js";
 
 const root = document.getElementById("admin");
 const tip = document.getElementById("tip");
@@ -16,6 +17,15 @@ const CATS = [
 let docs = [];
 let user = null;
 let excludeTests = true;
+let versionFilter = STUDY.studyVersion; // or "all"
+let manifestCache = null;
+
+async function getManifest() {
+  if (!manifestCache) {
+    try { manifestCache = await (await fetch("manifest.json", { cache: "no-cache" })).json(); } catch { manifestCache = { experiments: {} }; }
+  }
+  return manifestCache;
+}
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -134,7 +144,31 @@ function bindSignOut() {
 }
 
 /* ───────────────────────── Aggregation ───────────────────────── */
-function included() { return docs.filter((d) => !(excludeTests && d.isTest)); }
+function included() {
+  return docs.filter((d) => !(excludeTests && d.isTest) && (versionFilter === "all" || d.studyVersion === versionFilter));
+}
+
+// For every action that exists in several experiments: how often it was rated in each one.
+function coverage(list, manifest) {
+  const keys = STUDY.experiments.map((e) => e.key);
+  const { shared } = actionGroups(manifest, keys);
+  const rows = new Map(shared.map((g) => [g.key, { prompt: g.prompt, exps: g.exps.join(""), counts: {} }]));
+  const rotations = {};
+  for (const d of list) {
+    const r = d.assignment?.rotation;
+    rotations[r ?? "none"] = (rotations[r ?? "none"] || 0) + 1;
+    for (const t of d.trials || []) {
+      const key = t.actionKey || actionKeyOf(t);
+      if (!rows.has(key)) {
+        if (!(t.actionExps && t.actionExps.length > 1)) continue;
+        rows.set(key, { prompt: t.prompt, exps: t.actionExps, counts: {} });
+      }
+      const row = rows.get(key);
+      row.counts[t.exp] = (row.counts[t.exp] || 0) + 1;
+    }
+  }
+  return { rows: [...rows.values()].sort((a, b) => a.prompt.localeCompare(b.prompt)), rotations };
+}
 
 function aggregate(list) {
   // exp -> qid -> {video, motion, same, cannot, other, n}
@@ -157,9 +191,13 @@ function aggregate(list) {
 }
 
 /* ───────────────────────── Data view ───────────────────────── */
-function renderData() {
+async function renderData() {
   const list = included();
-  const tests = docs.filter((d) => d.isTest).length;
+  const manifest = await getManifest();
+  const cov = coverage(list, manifest);
+  const versions = [...new Set(docs.map((d) => d.studyVersion).filter(Boolean))].sort();
+  if (!versions.includes(STUDY.studyVersion)) versions.push(STUDY.studyVersion);
+  const tests = docs.filter((d) => d.isTest && (versionFilter === "all" || d.studyVersion === versionFilter)).length;
   const durations = list.map((d) => d.durationSec);
   const latest = list.length ? toDate(list[0].submittedAt) : null;
   const { out, pairs } = aggregate(list);
@@ -187,9 +225,17 @@ function renderData() {
     return `<tr><td>${esc(exp.key)}</td><td>Q${i + 1}. ${esc(q.text)}</td><td class="num">${c.n}</td>${cell("video")}${cell("motion")}${cell("same")}${cell("cannot")}</tr>`;
   })).join("");
 
-  const people = docs.filter((d) => !(excludeTests && d.isTest)).map((d) => `<tr>
+  const covRows = cov.rows.map((r) => `<tr>
+      <td>${esc(r.prompt)}</td><td>${esc(r.exps)}</td>
+      ${STUDY.experiments.map((e) => `<td class="num">${r.exps.includes(e.key) ? (r.counts[e.key] || 0) : `<span style="color:var(--muted)">–</span>`}</td>`).join("")}
+    </tr>`).join("");
+  const rotText = Object.entries(cov.rotations).sort(([a], [b]) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    .map(([r, n]) => `${r === "none" ? "no rotation (older version)" : `rotation ${esc(r)}`}: ${n}`).join(" · ") || "no responses yet";
+
+  const people = list.map((d) => `<tr>
       <td>${esc(fmtDate(toDate(d.submittedAt)))}</td>
       <td class="mono">${esc(String(d.participantId || d.id).slice(0, 8))}</td>
+      <td class="num">${d.assignment ? esc(d.assignment.rotation) : "–"}</td>
       <td class="num">${esc(fmtMin(d.durationSec))}</td>
       <td>${esc(d.profile?.experience || "–")}</td>
       <td class="num">${(d.trials || []).length}</td>
@@ -201,6 +247,11 @@ function renderData() {
   shell(`
     <div class="toolbar">
       <label class="toggle"><input type="checkbox" id="excl" ${excludeTests ? "checked" : ""}> Exclude test runs (${tests})</label>
+      <label class="toggle">Study version
+        <select id="ver" class="select">
+          ${versions.map((v) => `<option value="${esc(v)}" ${versionFilter === v ? "selected" : ""}>${esc(v)}${v === STUDY.studyVersion ? " (current)" : ""}</option>`).join("")}
+          <option value="all" ${versionFilter === "all" ? "selected" : ""}>All versions</option>
+        </select></label>
       <span class="spacer"></span>
       ${DEMO ? "" : `<button class="btn ghost small" id="refresh">Refresh</button>`}
       <button class="btn ghost small" id="csv">Download CSV</button>
@@ -224,14 +275,23 @@ function renderData() {
         ${CATS.map((k) => `<th class="num"><span class="swatch" style="background:${k.color}"></span>${esc(k.label)}</th>`).join("")}</tr></thead>
       <tbody>${tableRows}</tbody></table></div>
 
+    <h2 class="section-title">Shared actions: where each was shown</h2>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:-4px 0 12px">Each participant sees every action in only one experiment.
+      Counts are how many participants saw the action in that experiment (– = the action doesn't exist there).
+      Participants per rotation: ${rotText}.</p>
+    ${cov.rows.length ? `<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Action</th><th>In</th>${STUDY.experiments.map((e) => `<th class="num">Shown in ${esc(e.key)}</th>`).join("")}</tr></thead>
+      <tbody>${covRows}</tbody></table></div>` : `<p style="color:var(--muted)">No actions are shared between experiments.</p>`}
+
     <h2 class="section-title">Participants</h2>
     ${people ? `<div class="tbl-wrap tall"><table class="tbl">
-      <thead><tr><th>Submitted</th><th>ID</th><th class="num">Time</th><th>Experience</th><th class="num">Clips</th><th></th><th>Comment</th><th></th></tr></thead>
+      <thead><tr><th>Submitted</th><th>ID</th><th class="num">Rotation</th><th class="num">Time</th><th>Experience</th><th class="num">Clips</th><th></th><th>Comment</th><th></th></tr></thead>
       <tbody>${people}</tbody></table></div>` : `<p style="color:var(--muted)">No responses yet.</p>`}
   `, signedInWho());
 
   bindSignOut();
   document.getElementById("excl").addEventListener("change", (e) => { excludeTests = e.target.checked; renderData(); });
+  document.getElementById("ver").addEventListener("change", (e) => { versionFilter = e.target.value; renderData(); });
   document.getElementById("refresh")?.addEventListener("click", load);
   document.getElementById("csv").addEventListener("click", () => download(toCsv(included()), `responses_${stamp()}.csv`, "text/csv"));
   document.getElementById("json").addEventListener("click", () => download(JSON.stringify(included().map(serializable), null, 2), `responses_${stamp()}.json`, "application/json"));
@@ -275,7 +335,8 @@ function serializable(d) {
 function toCsv(list) {
   const cols = [
     "participantId", "studyVersion", "isTest", "submittedAt", "startedAt", "durationSec", "experience",
-    "exp", "position", "globalIndex", "trialId", "promptId", "prompt", "seed", "k",
+    "rotation", "exp", "actionKey", "actionExps", "sharedAction",
+    "position", "globalIndex", "trialId", "src", "promptId", "prompt", "seed", "k",
     "left", "right", "leftType", "rightType",
     "questionId", "question", "answer", "chosenMethod", "chosenType",
     "trialTimeMs", "watchedSec", "fullyWatched", "usedSlowMo", "urlParams", "feedback",
@@ -296,7 +357,10 @@ function toCsv(list) {
           participantId: d.participantId || d.id, studyVersion: d.studyVersion, isTest: !!d.isTest,
           submittedAt: sub ? sub.toISOString() : "", startedAt: d.startedAt, durationSec: d.durationSec,
           experience: d.profile?.experience,
-          exp: t.exp, position: t.position, globalIndex: t.globalIndex, trialId: t.trialId, promptId: t.promptId,
+          rotation: d.assignment?.rotation,
+          exp: t.exp, actionKey: t.actionKey || actionKeyOf(t), actionExps: t.actionExps || t.exp,
+          sharedAction: !!(t.actionExps && t.actionExps.length > 1),
+          position: t.position, globalIndex: t.globalIndex, trialId: t.trialId, src: t.src, promptId: t.promptId,
           prompt: t.prompt, seed: t.seed, k: t.k, left: t.left, right: t.right, leftType: t.leftType, rightType: t.rightType,
           questionId: qid,
           question: d.questions?.[t.exp]?.find((q) => q.id === qid)?.text || qText[`${t.exp}:${qid}`] || "",
@@ -323,14 +387,17 @@ function download(text, name, type) {
 
 /* ───────────────────────── Demo data ───────────────────────── */
 async function demoDocs() {
-  const manifest = await (await fetch("manifest.json", { cache: "no-cache" })).json();
+  const manifest = await getManifest();
+  const keys = STUDY.experiments.map((e) => e.key);
+  const { cycle } = makePlan(manifest, keys, 0);
   const pick = (w) => { let r = Math.random(), acc = 0; for (const [k, p] of w) { acc += p; if (r < acc) return k; } return w[w.length - 1][0]; };
   const out = [];
   for (let p = 0; p < 24; p++) {
+    const plan = makePlan(manifest, keys, p % cycle);
     const trials = [];
     let g = 0;
     for (const exp of STUDY.experiments) {
-      const list = manifest.experiments[exp.key]?.trials || [];
+      const list = plan.selected[exp.key] || [];
       list.forEach((t, i) => {
         const answers = {}, chosen = {}, chosenType = {};
         exp.questions.forEach((q, qi) => {
@@ -341,7 +408,9 @@ async function demoDocs() {
           chosen[q.id] = side === "left" ? t.left : side === "right" ? t.right : side;
           chosenType[q.id] = typ;
         });
-        trials.push({ exp: exp.key, position: i + 1, globalIndex: ++g, trialId: t.id, src: t.src, promptId: t.promptId, prompt: t.prompt,
+        const actionKey = actionKeyOf(t);
+        trials.push({ exp: exp.key, actionKey, actionExps: plan.actionExps[actionKey], sharedAction: plan.actionExps[actionKey].length > 1,
+          position: i + 1, globalIndex: ++g, trialId: t.id, src: t.src, promptId: t.promptId, prompt: t.prompt,
           seed: t.seed, k: t.k, left: t.left, right: t.right, leftType: t.leftType, rightType: t.rightType,
           answers, chosen, chosenType, timeMs: 20000 + Math.round(Math.random() * 30000), watchedSec: 12, fullyWatched: true, usedSlowMo: Math.random() < 0.3 });
       });
@@ -352,6 +421,8 @@ async function demoDocs() {
       studyVersion: STUDY.studyVersion, isTest: p < 2, durationSec: dur,
       submittedAt: new Date(Date.now() - p * 3.6e6).toISOString(), startedAt: new Date(Date.now() - p * 3.6e6 - dur * 1000).toISOString(),
       profile: { experience: STUDY.experienceQuestion.options[p % 4] },
+      assignment: { scheme: plan.scheme, rotation: plan.rotation, cycle: plan.cycle, forced: false,
+        byAction: plan.byAction, actionExps: plan.actionExps, hidden: plan.hidden },
       feedback: p === 3 ? "Some clips were hard to judge on a small screen." : "",
       trials,
     });

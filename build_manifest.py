@@ -20,6 +20,7 @@ the same name as the video next to it, e.g. "<video name>.png" (or .jpg/.webp).
 
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,10 +48,21 @@ METHOD_TYPES = [
 VIDEO_EXTS = {".mp4", ".webm", ".mov"}
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 
+# Accepts all naming styles used so far, e.g.
+#   ..._s1234_k5__left-LTX_GVHMR__right-Kimodo[0000-0299]
+#   ..._H3_s43_LEFT-Kimodo__RIGHT_video_H3
+#   ..._H3_s43_k5_LEFT_Kimodo-RIGHT_H3
+#   ..._H3_s43_k5_LEFT-H3__RIGHT-Kimodo
 NAME_RE = re.compile(
-    r"^(?P<pid>A\d+)_(?P<slug>.+?)_s(?P<seed>\d+)(?:_k(?P<k>\d+))?"
-    r"__left-(?P<left>.+?)__right-(?P<right>.+?)(?:\d{4}-\d{4})?$"
+    r"^(?P<pid>A\d+)_(?P<slug>.+?)(?:_H3)?_s(?P<seed>\d+)(?:_k(?P<k>\d+))?"
+    r"_+(?i:left)[-_](?P<left>.+?)(?:__|-|_)(?i:right)[-_](?P<right>.+?)(?:\d{4}-\d{4})?$"
 )
+
+# Different spellings of the same method in filenames -> one name in the data.
+METHOD_ALIASES = {
+    "video_h3": "H3",
+    "h3": "H3",
+}
 
 
 def method_type(name: str) -> str:
@@ -64,6 +76,25 @@ def method_type(name: str) -> str:
 def slug_to_prompt(slug: str) -> str:
     text = slug.replace("_", " ").strip()
     return text[:1].upper() + text[1:] + "."
+
+
+def slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+def canonical_method(name: str) -> str:
+    return METHOD_ALIASES.get(name.lower(), name)
+
+
+def duration_of(path: Path):
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
+        return round(float(out), 2)
+    except Exception:
+        return None
 
 
 def main() -> int:
@@ -92,12 +123,21 @@ def main() -> int:
                 problems.append(f"[{key}] skipped (name not understood): {f.name}")
                 continue
 
-            pid = m["pid"]
-            if pid in prompts:
+            pid, slug = m["pid"], m["slug"]
+            # prompts.json gives the full sentence (filenames may cut it off), but only
+            # trust it when it agrees with the filename: some IDs were reused for
+            # different wording (e.g. A140 "mimes a volleyball spike" vs "spikes a volleyball").
+            if pid in prompts and slugify(prompts[pid]).startswith(slug):
                 prompt = prompts[pid]
             else:
-                prompt = slug_to_prompt(m["slug"])
-                problems.append(f"[{key}] {pid}: no entry in prompts.json, using filename text: {prompt!r}")
+                prompt = slug_to_prompt(slug)
+                if pid in prompts:
+                    note = f"prompts.json has a different sentence ({prompts[pid]!r})"
+                else:
+                    note = "no entry in prompts.json"
+                problems.append(f"[{key}] {pid}: {note}; using filename text {prompt!r}")
+                if len(slug) >= 50:
+                    problems.append(f"[{key}] {pid}: filename text may be cut off - add the full sentence to prompts.json")
 
             keyframes = None
             for ext in IMAGE_EXTS:
@@ -108,18 +148,22 @@ def main() -> int:
                 if keyframes:
                     break
 
-            left, right = m["left"], m["right"]
+            left, right = canonical_method(m["left"]), canonical_method(m["right"])
             trials.append({
                 "id": f"{key}:{f.stem}",
                 "src": f.relative_to(ROOT).as_posix(),
                 "promptId": pid,
                 "prompt": prompt,
+                # Same action = same prompt sentence (IDs are not reliable).
+                # A participant sees each action in only one experiment (assets/plan.js).
+                "actionKey": slugify(prompt),
                 "seed": int(m["seed"]),
                 "k": int(m["k"]) if m["k"] else None,
                 "left": left,
                 "right": right,
                 "leftType": method_type(left),
                 "rightType": method_type(right),
+                "duration": duration_of(f),
                 "keyframes": keyframes,
             })
             if "unknown" in (method_type(left), method_type(right)):
@@ -141,8 +185,23 @@ def main() -> int:
         print(f"Experiment {key} ({exp['folder']}): {len(trials)} clips  [{balance}]")
         for t in trials:
             kf = "  +keyframes" if t["keyframes"] else ""
-            print(f"   {t['promptId']:>6}  L={t['left']:<10} R={t['right']:<10} {t['prompt']}{kf}")
+            dur = f"{t['duration']:>5.1f}s" if t["duration"] else "   ? "
+            print(f"   {t['promptId']:>6} {dur}  L={t['left']:<10} R={t['right']:<10} {t['prompt']}{kf}")
     print(f"\nWrote {out.name} with {total} clips.")
+
+    actions = {}
+    for key, exp in manifest["experiments"].items():
+        for t in exp["trials"]:
+            a = actions.setdefault(t["actionKey"], {"prompt": t["prompt"], "exps": []})
+            if key not in a["exps"]:
+                a["exps"].append(key)
+    shared = {k: v for k, v in actions.items() if len(v["exps"]) > 1}
+    print(f"{len(actions)} different actions; each participant sees each action once, so about "
+          f"{len(actions)} clips per person.")
+    if shared:
+        print(f"{len(shared)} actions appear in several experiments (each participant gets one of them):")
+        for k, v in sorted(shared.items()):
+            print(f"   {''.join(v['exps']):<4} {v['prompt']}")
 
     if problems:
         print("\nCheck these:")

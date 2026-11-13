@@ -1,5 +1,6 @@
 import { STUDY } from "../config.js";
 import { firebaseConfigured, getFirestoreKit } from "./firebase.js";
+import { makePlan, actionKeyOf } from "./plan.js";
 
 /* ───────────────────────── Setup ───────────────────────── */
 const app = document.getElementById("app");
@@ -105,15 +106,37 @@ let cleanup = () => {};
 
 function save() { if (state) store.set(state); }
 
-function newState() {
+// Which clips this participant sees: each action in only one experiment (see plan.js).
+function newPlan() {
+  const keys = exps.map((e) => e.key);
+  const { cycle } = makePlan(manifest, keys, 0);
+  const forced = params.get("rotation");
+  const isForced = forced != null && /^\d+$/.test(forced);
+  const rotation = isForced ? Number(forced) % cycle : randInt(cycle);
+  return { ...makePlan(manifest, keys, rotation), forced: isForced };
+}
+const planSize = (plan) => Object.values(plan.selected).reduce((n, list) => n + list.length, 0);
+const planParts = (plan) => exps.filter((e) => plan.selected[e.key]?.length).length;
+
+function newState(plan) {
   const order = {};
-  for (const e of exps) order[e.key] = orderTrials(manifest.experiments[e.key].trials).map((t) => t.id);
+  // experiments stay in config order (A, B, C); clips are shuffled within each one
+  for (const e of exps) order[e.key] = orderTrials(plan.selected[e.key] || []).map((t) => t.id);
   return {
     studyVersion: STUDY.studyVersion,
     participantId: uid(),
     isTest: isTestLink,
     urlParams: collectParams(),
     startedAt: new Date().toISOString(),
+    assignment: {
+      scheme: plan.scheme,
+      rotation: plan.rotation,
+      cycle: plan.cycle,
+      forced: plan.forced,
+      byAction: plan.byAction, // shared action -> experiment it was shown in
+      actionExps: plan.actionExps, // action -> experiments that contain it, e.g. "ABC"
+      hidden: plan.hidden, // clips NOT shown to this participant
+    },
     order,
     step: 0,
     answers: {},
@@ -125,17 +148,20 @@ function newState() {
   };
 }
 
+let totalParts = 0;
 function buildSteps() {
   const s = [];
   let g = 0;
-  exps.forEach((exp, ei) => {
+  let part = 0;
+  for (const exp of exps) {
     const ids = (state.order[exp.key] || []).filter((id) => trialById.has(id));
-    if (!ids.length) return;
-    s.push({ type: "section", exp, ei });
+    if (!ids.length) continue;
+    const ei = part++;
     ids.forEach((id, i) => s.push({ type: "trial", exp, ei, trial: trialById.get(id), pos: i + 1, n: ids.length, g: ++g }));
-  });
+  }
   s.push({ type: "finish" });
   totalTrials = g;
+  totalParts = part;
   return s;
 }
 
@@ -153,13 +179,12 @@ async function boot() {
   }
   exps = STUDY.experiments.filter((e) => manifest.experiments?.[e.key]?.trials?.length);
   for (const e of exps) for (const t of manifest.experiments[e.key].trials) trialById.set(t.id, t);
-  totalTrials = exps.reduce((n, e) => n + manifest.experiments[e.key].trials.length, 0);
 
   const saved = store.get();
-  const valid = saved && saved.studyVersion === STUDY.studyVersion && saved.order && saved.participantId;
+  const valid = saved && saved.studyVersion === STUDY.studyVersion && saved.order && saved.participantId && saved.assignment;
 
   if (isTestLink && jumpTo != null) {
-    state = valid && !saved.submitted ? saved : newState();
+    state = valid && !saved.submitted ? saved : newState(newPlan());
     steps = buildSteps();
     state.step = Math.max(0, Math.min(steps.length - 1, parseInt(jumpTo, 10) || 0));
     save();
@@ -197,7 +222,6 @@ function render() {
   if (state.submitted) return renderDone();
   const st = steps[state.step];
   if (!st) { state.step = 0; return render(); }
-  if (st.type === "section") return renderSection(st);
   if (st.type === "trial") return renderTrial(st);
   return renderFinish();
 }
@@ -218,10 +242,15 @@ function optionsHtml(name, value, opts, dataAttr = "") {
 
 /* ───────────────────────── Intro ───────────────────────── */
 function renderIntro(pending) {
-  const minutes = Math.max(5, Math.ceil((totalTrials * 35) / 60 / 5) * 5);
+  // The plan is drawn now so the page can state the exact number of clips; it is used when "Start" is pressed.
+  const plan = newPlan();
+  const nClips = planSize(plan);
+  const nParts = planParts(plan);
+  const minutes = Math.max(5, Math.ceil((nClips * 35) / 60 / 5) * 5);
   const answered = pending ? Object.values(pending.answers || {}).filter((a) => Object.keys(a).length).length : 0;
-  const resume = pending && pending.step > 0
-    ? `<div class="resume">${I.info}<p><strong>Welcome back!</strong> You have started this study before (${answered} of ${totalTrials} clips answered). You can pick up where you left off.</p>
+  const pendingTotal = pending ? Object.values(pending.order || {}).reduce((n, ids) => n + ids.length, 0) : 0;
+  const resume = pending && (pending.step > 0 || answered > 0)
+    ? `<div class="resume">${I.info}<p><strong>Welcome back!</strong> You have started this study before (${answered} of ${pendingTotal} clips answered). You can pick up where you left off.</p>
          <button class="btn ghost small" id="restart">Start over</button>
          <button class="btn primary small" id="resume">Continue ${I.right}</button></div>`
     : "";
@@ -237,8 +266,8 @@ function renderIntro(pending) {
         Each clip shows <strong>two versions of the same action side by side</strong>, and you tell us which one looks better.</p>
       <div class="facts">
         <span class="chip">${I.clock} About ${minutes} minutes</span>
-        <span class="chip">${I.film} ${totalTrials} comparisons</span>
-        <span class="chip">${I.layers} ${exps.length} short part${exps.length > 1 ? "s" : ""}</span>
+        <span class="chip">${I.film} ${nClips} comparisons</span>
+        <span class="chip">${I.layers} ${nParts} short part${nParts > 1 ? "s" : ""}</span>
         <span class="chip">${I.shield} Anonymous</span>
       </div>
     </div>
@@ -287,7 +316,7 @@ function renderIntro(pending) {
   consent.addEventListener("change", () => { start.disabled = !consent.checked; });
   start.addEventListener("click", () => {
     if (!consent.checked) return;
-    state = newState();
+    state = newState(plan);
     state.profile.experience = app.querySelector('input[name="experience"]:checked')?.value ?? null;
     state.consentAt = new Date().toISOString();
     steps = buildSteps();
@@ -306,31 +335,6 @@ function renderIntro(pending) {
   });
 }
 
-/* ───────────────────────── Section interstitial ───────────────────────── */
-function renderSection(st) {
-  const { exp, ei } = st;
-  const n = steps.filter((s) => s.type === "trial" && s.exp.key === exp.key).length;
-  const track = exps.map((_, i) => `<span class="${i < ei ? "done" : i === ei ? "now" : ""}"></span>`).join("");
-  mount(`<section class="card narrow"><div class="part">
-    <span class="badge">Part ${ei + 1} of ${exps.length}</span>
-    <h1>${esc(exp.title)}</h1>
-    <p class="sub">${esc(exp.subtitle)}</p>
-    <p class="desc">${esc(exp.intro)}</p>
-    <ol class="part-qs">
-      ${exp.questions.map((q, i) => `<li><span class="q-num">${i + 1}</span><div><p class="q-text">${esc(q.text)}</p>${q.hint ? `<p class="q-hint">${esc(q.hint)}</p>` : ""}</div></li>`).join("")}
-    </ol>
-    <p class="desc">${n} clip${n > 1 ? "s" : ""} in this part.</p>
-    <div class="parts-track" aria-hidden="true">${track}</div>
-    <div class="center-row">
-      ${state.step > 0 ? `<button class="btn ghost" id="back">${I.left} Back</button>` : ""}
-      <button class="btn primary lg" id="begin">Begin part ${ei + 1} ${I.right}</button>
-    </div>
-  </div></section>`);
-  document.getElementById("begin").addEventListener("click", () => go(1));
-  document.getElementById("back")?.addEventListener("click", () => go(-1));
-  document.getElementById("begin").focus({ preventScroll: true });
-}
-
 /* ───────────────────────── Trial ───────────────────────── */
 function renderTrial(st) {
   const { exp, ei, trial, pos, n, g } = st;
@@ -345,7 +349,7 @@ function renderTrial(st) {
       <div class="logo">${I.clapper}</div>
       <div class="head-divider"></div>
       <div class="head-text"><h1>${esc(exp.title)}</h1><p class="sub">${esc(exp.subtitle)}</p></div>
-      <span class="chip">Part ${ei + 1} of ${exps.length} · Clip ${pos}/${n}</span>
+      <span class="chip">Part ${ei + 1} of ${totalParts} · Clip ${pos}/${n}</span>
     </header>
 
     <div class="prompt"><span class="prompt-label">${I.chat} Text Prompt</span><p class="prompt-text">${quote(trial.prompt)}</p></div>
@@ -387,7 +391,7 @@ function renderTrial(st) {
         <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${totalTrials}" aria-valuenow="${g}"><i style="width:${(g / totalTrials) * 100}%"></i></div>
       </div>
       <div class="nav">
-        <button class="btn ghost" id="back">${I.left} Back</button>
+        <button class="btn ghost" id="back" ${state.step === 0 ? "disabled" : ""}>${I.left} Back</button>
         <button class="btn primary" id="next" aria-disabled="true">${isLast ? `Finish ${I.check}` : `Next ${I.right}`}</button>
       </div>
       <p class="foot-hint" id="hint"></p>
@@ -581,8 +585,14 @@ function buildPayload() {
       chosen[q.id] = v === "left" ? t.left : v === "right" ? t.right : v;
       chosenType[q.id] = v === "left" ? t.leftType : v === "right" ? t.rightType : v;
     }
+    const actionKey = actionKeyOf(t);
+    const actionExps = state.assignment?.actionExps?.[actionKey] || s.exp.key;
     return {
+      // `exp` is the experiment this clip was shown in. For actions that exist in
+      // several experiments, `actionExps` lists them all (e.g. "ABC") and
+      // `sharedAction` is true: this participant saw the action ONLY in `exp`.
       exp: s.exp.key, position: s.pos, globalIndex: s.g,
+      actionKey, actionExps, sharedAction: actionExps.length > 1,
       trialId: t.id, src: t.src, promptId: t.promptId, prompt: t.prompt, seed: t.seed, k: t.k,
       left: t.left, right: t.right, leftType: t.leftType, rightType: t.rightType,
       answers, chosen, chosenType,
@@ -610,6 +620,7 @@ function buildPayload() {
       viewport: `${innerWidth}x${innerHeight}`,
       dpr: window.devicePixelRatio || 1,
     },
+    assignment: state.assignment || null,
     questions: Object.fromEntries(exps.map((e) => [e.key, e.questions.map((q) => ({ id: q.id, text: q.text }))])),
     order: Object.fromEntries(exps.map((e) => [e.key, state.order[e.key] || []])),
     manifestGenerated: manifest.generated || null,

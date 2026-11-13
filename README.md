@@ -5,14 +5,35 @@ A static user-study website (GitHub Pages) that stores responses in Firebase Fir
 - **Participants:** `https://kianizadpanah.github.io/video_motion_survey/`
 - **Your dashboard:** `https://kianizadpanah.github.io/video_motion_survey/admin.html`
 
-Flow: welcome page → Experiment A → B → C (clip order shuffled within each experiment) → optional comment → submit.
+Flow: one welcome page → Experiment A clips → B clips → C clips → optional comment → submit. There are no pages between experiments; the header of each clip shows which experiment it belongs to. Clip order is shuffled **within** each experiment.
+
+### Each action is shown only once per participant
+Some actions exist in several experiments (e.g. the volleyball spike is in A, B and C). Each participant sees every **action** in exactly **one** of those experiments. With the current 38 clips, that is 26 clips per person. "Same action" means the same prompt sentence, not the same ID, because IDs were reused (A141 is bowling in A/B but golf in C).
+
+Which experiment a shared action goes to is set by a **rotation** number (0–5 at the moment), drawn at random per participant ([assets/plan.js](assets/plan.js)). Over one full cycle of rotations, every shared action is shown equally often in each of its experiments. Each participant's own clips are also spread across A, B and C rather than piling up in one.
+
+Everything is saved with the response:
+
+| field | where | meaning |
+|---|---|---|
+| `exp` | each trial | the experiment the clip was **shown in** (A/B/C) |
+| `actionKey` | each trial | the action (prompt sentence as a slug) |
+| `actionExps` | each trial | all experiments that contain this action, e.g. `ABC` |
+| `sharedAction` | each trial | `true` if the action exists in more than one experiment |
+| `trialId`, `src` | each trial | the exact video file shown |
+| `assignment.rotation` | response | the participant's rotation |
+| `assignment.byAction` | response | shared action → experiment it was shown in |
+| `assignment.hidden` | response | the clips this participant did **not** see |
+
+The dashboard has a **Shared actions** table showing, for every shared action, how many participants saw it in A, B and C. Use it to check that the arms stay balanced.
 
 ```
 index.html          participant site
 admin.html          results dashboard (Google sign-in, CSV/JSON export, delete)
 config.js           ← edit: Firebase keys, wording, questions
 firestore.rules     ← paste into Firebase (security rules)
-build_manifest.py   ← run after adding/removing videos
+prepare_videos.py   ← run after adding videos: trims + converts to browser-safe format
+build_manifest.py   ← then run this: rebuilds the clip list
 manifest.json       generated list of clips (do not edit by hand)
 prompts.json        full prompt text per ID (filenames truncate long prompts)
 exp A/ exp B/ exp C/  videos
@@ -118,7 +139,9 @@ Main CSV columns:
 | column | meaning |
 |---|---|
 | `participantId` | random anonymous ID |
-| `exp`, `position` | experiment (A/B/C) and the clip's position in that participant's shuffled order |
+| `exp`, `position` | experiment (A/B/C) the clip was shown in, and its position in that participant's shuffled order |
+| `rotation`, `actionKey`, `actionExps`, `sharedAction` | which arm of the one-experiment-per-action assignment this rating belongs to (see top of this file) |
+| `trialId`, `src` | the exact video file |
 | `promptId`, `prompt`, `seed`, `k` | which clip |
 | `left`, `right`, `leftType`, `rightType` | methods shown on each side (`video` / `motion`) |
 | `questionId` | `match`, `realism`, `smoothness` (A) or `sequence` (B, C) |
@@ -136,13 +159,15 @@ You can also browse the raw documents in Firebase console → Firestore → **Da
 ## 5. Changing the study
 
 - **Wording, questions, titles, consent text:** edit `config.js`.
-  If you change things after launching, also bump `studyVersion` (e.g. `"v2"`) so responses can be told apart.
+  If you change things after launching, also bump `studyVersion` (currently `"v2"`) so responses can be told apart. The dashboard's **Study version** menu shows the current version by default; choose another version or "All versions" to see older responses.
 - **Adding or replacing videos:** put them in `exp A` / `exp B` / `exp C` using the usual naming, e.g.
-  `A344_a_person_..._s1234__left-LTX_GVHMR__right-Kimodo.mp4`. Then run
+  `A344_a_person_..._s1234__left-LTX_GVHMR__right-Kimodo.mp4` or `A140_..._H3_s43_LEFT-Kimodo__RIGHT_video_H3.mp4`. Then run
   ```bash
-  python build_manifest.py
+  python prepare_videos.py   # trims (see TRIMS in the file) + converts 10-bit videos to browser-safe 8-bit
+  python build_manifest.py   # rebuilds the clip list
   ```
-  and commit/push. The script prints every clip and flags prompt IDs missing from `prompts.json`; add the full sentence there, since filenames cut prompts at 50 characters.
+  and commit/push. `prepare_videos.py` keeps untouched originals in `_originals/` (not uploaded). To trim a clip, add it to `TRIMS` and run it again; it always cuts from the original.
+  `build_manifest.py` prints every clip with its length and flags prompts it can't verify. If a filename's prompt is cut off (50+ characters), add the full sentence to `prompts.json`.
 - **New method names:** add them to `METHOD_TYPES` in `build_manifest.py` so they're labelled `video` or `motion`.
 - **Reference keyframes (optional):** put an image with the same name as a video next to it (`<video name>.png`). It then appears as a "Reference keyframes" strip above that clip.
 - **Recruiting platforms:** any URL parameters are saved with the response (e.g. Prolific's `?PROLIFIC_PID=...`). Put a completion link in `completionUrl` to show it at the end.
@@ -150,7 +175,8 @@ You can also browse the raw documents in Firebase console → Firestore → **Da
 **Handy URL options (your own testing only):**
 - `?test=1`: marks the response as a test.
 - `?reset=1`: clears saved progress in your browser.
-- `?test=1&jump=5`: jumps straight to step 5.
+- `?test=1&jump=5`: jumps straight to clip 6 (counting from 0).
+- `?rotation=3`: forces rotation 3 instead of a random one. It's recorded as `assignment.forced = true`. You could also hand out a fixed link per rotation if you want exactly balanced groups.
 
 ---
 
