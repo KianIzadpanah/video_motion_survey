@@ -1,0 +1,65 @@
+{
+  "_help": [
+    "Action-coverage checklist for compound prompts. Prompts not listed here get no checklist.",
+    "Key = the full prompt sentence exactly as shown on the site (same text as prompts.json).",
+    "relation: 'order' (consecutive actions) or 'simultaneous' (actions at the same time).",
+    "actions: one row each, written to follow 'Does the person ...'.",
+    "relationText (optional): replaces the default last-row sentence from config.js.",
+    "After editing, run: python build_manifest.py"
+  ],
+
+  "A person walks to a ladder, climbs up, and sits at the top.": {
+    "relation": "order",
+    "actions": ["walks to the ladder", "climbs up", "sits at the top"]
+  },
+  "A person tosses a tennis ball into the air and serves it with a racket.": {
+    "relation": "order",
+    "actions": ["tosses a tennis ball into the air", "serves it with a racket"]
+  },
+  "A person turns around, then waves.": {
+    "relation": "order",
+    "actions": ["turns around", "waves"]
+  },
+  "A person kicks forward, then bows.": {
+    "relation": "order",
+    "actions": ["kicks forward", "bows"]
+  },
+  "A person walks forward, picks something up from the ground, and walks back.": {
+    "relation": "order",
+    "actions": ["walks forward", "picks something up from the ground", "walks back"]
+  },
+
+  "A person marches in place while clapping.": {
+    "relation": "simultaneous",
+    "actions": ["marches in place", "claps"]
+  },
+  "A person squats down while clapping.": {
+    "relation": "simultaneous",
+    "actions": ["squats down", "claps"]
+  },
+  "A person walks forward with the arms out like airplane wings.": {
+    "relation": "simultaneous",
+    "actions": ["walks forward", "holds the arms out like airplane wings"]
+  },
+  "A person walks forward while carrying a box.": {
+    "relation": "simultaneous",
+    "actions": ["walks forward", "carries a box"]
+  },
+  "A person lunges forward while punching with the opposite hand.": {
+    "relation": "simultaneous",
+    "actions": ["lunges forward", "punches with the hand opposite the front leg"]
+  },
+  "A person steps forward while throwing a straight punch.": {
+    "relation": "simultaneous",
+    "actions": ["steps forward", "throws a straight punch"]
+  },
+  "A person walks like a zombie with the arms stretched forward.": {
+    "relation": "simultaneous",
+    "actions": ["walks like a zombie", "keeps the arms stretched forward"]
+  },
+  "A person walks forward while throwing a ball up and catching it.": {
+    "relation": "simultaneous",
+    "actions": ["walks forward", "throws a ball up", "catches it"],
+    "relationText": "The throw and the catch happen while walking."
+  }
+}

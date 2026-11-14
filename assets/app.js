@@ -1,6 +1,7 @@
 import { STUDY } from "../config.js";
 import { firebaseConfigured, getFirestoreKit } from "./firebase.js";
 import { makePlan, actionKeyOf } from "./plan.js";
+import { SIDES, checklistItems, checklistScore } from "./checklist.js";
 
 /* ───────────────────────── Setup ───────────────────────── */
 const app = document.getElementById("app");
@@ -140,6 +141,7 @@ function newState(plan) {
     order,
     step: 0,
     answers: {},
+    coverage: {}, // trialId -> { left: {a1: "yes", …, rel: "no"}, right: {…} } (compound prompts only)
     meta: {},
     profile: { experience: null },
     feedback: "",
@@ -246,7 +248,8 @@ function renderIntro(pending) {
   const plan = newPlan();
   const nClips = planSize(plan);
   const nParts = planParts(plan);
-  const minutes = Math.max(5, Math.ceil((nClips * 35) / 60 / 5) * 5);
+  const nCompound = Object.values(plan.selected).flat().filter((t) => t.checklist).length;
+  const minutes = Math.max(5, Math.ceil((nClips * 35 + nCompound * 25) / 60 / 5) * 5);
   const answered = pending ? Object.values(pending.answers || {}).filter((a) => Object.keys(a).length).length : 0;
   const pendingTotal = pending ? Object.values(pending.order || {}).reduce((n, ids) => n + ids.length, 0) : 0;
   const resume = pending && (pending.step > 0 || answered > 0)
@@ -280,16 +283,18 @@ function renderIntro(pending) {
         <p>The clip loops automatically. Watch it all the way through at least once; slow motion helps you spot small glitches.</p></div>
       <div class="step"><div class="step-num">3</div><h3>Pick Left or Right</h3>
         <p>Answer three quick questions per clip. Choose “About the same” only when you really can't see a difference.</p></div>
+      <div class="step"><div class="step-num">4</div><h3>Tick off each action</h3>
+        <p>When the description has several actions, a short checklist asks whether each figure performs each one.</p></div>
     </div>
 
     <h2 class="section-title">What to look for</h2>
     <div class="lookfor">
       <div class="look"><div class="look-icon">${I.text}</div><div><h3>Matches the description</h3>
-        <p>Does the person really do what the sentence says, every part of it?</p></div></div>
+        <p>Does the person do what the sentence says? Judge <em>what</em> they do, not how smooth it looks.</p></div></div>
       <div class="look"><div class="look-icon">${I.person}</div><div><h3>Looks like a real person</h3>
-        <p>Watch for floating, sliding feet, shaking or jitter, stiff body parts, and impossible poses.</p></div></div>
-      <div class="look"><div class="look-icon">${I.wave}</div><div><h3>Smooth and coordinated</h3>
-        <p>Does it flow naturally, in a sensible order, with body parts working together, or does it look robotic?</p></div></div>
+        <p>Your overall impression: does the body have weight and balance, and does the timing feel natural?</p></div></div>
+      <div class="look"><div class="look-icon">${I.wave}</div><div><h3>Fewer visible errors</h3>
+        <p>Sliding feet, floating, shaking, impossible poses or sudden jumps.</p></div></div>
     </div>
 
     <h2 class="section-title">Good to know</h2>
@@ -339,6 +344,9 @@ function renderIntro(pending) {
 function renderTrial(st) {
   const { exp, ei, trial, pos, n, g } = st;
   const ans = (state.answers[trial.id] ||= {});
+  const clItems = checklistItems(trial.checklist);
+  const cov = clItems.length ? ((state.coverage ||= {})[trial.id] ||= { left: {}, right: {} }) : null;
+  const rowDone = (it) => SIDES.every((side) => cov[side][it.id]);
   const meta = (state.meta[trial.id] ||= { timeMs: 0, watchedSec: 0, fullyWatched: false, usedSlowMo: false, visits: 0 });
   meta.visits++;
   const isLast = state.step === steps.length - 2;
@@ -383,6 +391,28 @@ function renderTrial(st) {
             <div class="options" role="radiogroup" aria-labelledby="qt-${esc(q.id)}">${optionsHtml(`q-${q.id}`, ans[q.id], STUDY.options, `data-q="${esc(q.id)}"`)}</div>
           </div>
         </li>`).join("")}
+      ${cov ? `
+        <li class="q checklist ${clItems.every(rowDone) ? "answered" : ""}" data-qid="checklist">
+          <span class="q-num">${exp.questions.length + 1}</span>
+          <div class="q-body">
+            <p class="q-text" id="qt-checklist">${esc(STUDY.checklist.text)}</p>
+            <p class="q-hint">${esc(STUDY.checklist.hint)}</p>
+            <div class="cl" role="group" aria-labelledby="qt-checklist">
+              <div class="cl-head" aria-hidden="true"><span></span><span>Left animation</span><span>Right animation</span></div>
+              ${clItems.map((it) => `
+                <div class="cl-row ${it.kind} ${rowDone(it) ? "done" : ""}" data-item="${esc(it.id)}">
+                  <p class="cl-item">${it.kind === "relation" ? `<span class="cl-tag">${trial.checklist.relation === "order" ? "Order" : "Timing"}</span>` : ""}${esc(it.text)}</p>
+                  ${SIDES.map((side) => `
+                    <div class="cl-cell">
+                      <span class="cl-side">${side === "left" ? "Left" : "Right"}</span>
+                      <div class="seg" role="radiogroup" aria-label="${side === "left" ? "Left" : "Right"} animation: ${esc(it.text)}">
+                        ${STUDY.checklist.options.map((o) => `<label class="seg-opt"><input type="radio" name="cl-${esc(it.id)}-${side}" value="${esc(o.value)}" data-cl="${esc(it.id)}" data-side="${side}" ${cov[side][it.id] === o.value ? "checked" : ""}><span>${esc(o.label)}</span></label>`).join("")}
+                      </div>
+                    </div>`).join("")}
+                </div>`).join("")}
+            </div>
+          </div>
+        </li>` : ""}
     </ol>
 
     <footer class="foot">
@@ -513,15 +543,35 @@ function renderTrial(st) {
     });
   });
 
+  // checklist answers
+  app.querySelectorAll("input[data-cl]").forEach((inp) => {
+    inp.addEventListener("change", () => {
+      cov[inp.dataset.side][inp.dataset.cl] = inp.value;
+      const row = inp.closest(".cl-row");
+      const it = clItems.find((x) => x.id === inp.dataset.cl);
+      if (rowDone(it)) { row.classList.add("done"); row.classList.remove("missing"); }
+      const li = inp.closest(".q");
+      if (clItems.every(rowDone)) { li.classList.add("answered"); li.classList.remove("missing"); }
+      save();
+      updateNav();
+    });
+  });
+
   function missingQs() { return exp.questions.filter((q) => !ans[q.id]); }
+  function missingRows() { return cov ? clItems.filter((it) => !rowDone(it)) : []; }
   function updateNav() {
-    const missing = missingQs().length;
+    const mq = missingQs().length;
+    const mc = missingRows().length;
     const needWatch = STUDY.requireFullView && !meta.fullyWatched;
-    nextBtn.setAttribute("aria-disabled", String(missing > 0 || needWatch));
+    nextBtn.setAttribute("aria-disabled", String(mq > 0 || mc > 0 || needWatch));
     watch.classList.toggle("done", meta.fullyWatched);
     watch.innerHTML = meta.fullyWatched ? `${I.check} Watched` : `${I.eye} Watch the full clip`;
-    if (missing) hint.textContent = `Answer ${missing === exp.questions.length ? "all " : ""}${missing} ${missing === exp.questions.length ? "" : "more "}question${missing > 1 ? "s" : ""} to continue.`;
-    else if (needWatch) hint.textContent = "Please watch the whole clip at least once to continue.";
+    if (mq || mc) {
+      const parts = [];
+      if (mq) parts.push(`${mq === exp.questions.length ? "the" : `${mq} more`} question${mq > 1 ? "s" : ""}`);
+      if (mc) parts.push(`${mc === clItems.length ? "the checklist" : `${mc} more checklist row${mc > 1 ? "s" : ""}`} (Left and Right on each row)`);
+      hint.textContent = `Answer ${parts.join(" and ")} to continue.`;
+    } else if (needWatch) hint.textContent = "Please watch the whole clip at least once to continue.";
     else hint.textContent = "";
   }
   updateNav();
@@ -533,9 +583,13 @@ function renderTrial(st) {
   nextBtn.addEventListener("click", () => {
     if (nextBtn.getAttribute("aria-disabled") === "true") {
       const miss = missingQs();
+      const rows = missingRows();
       miss.forEach((q) => app.querySelector(`.q[data-qid="${CSS.escape(q.id)}"]`)?.classList.add("missing"));
-      if (miss.length) app.querySelector(`.q[data-qid="${CSS.escape(miss[0].id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      else video.scrollIntoView({ behavior: "smooth", block: "center" });
+      rows.forEach((it) => app.querySelector(`.cl-row[data-item="${CSS.escape(it.id)}"]`)?.classList.add("missing"));
+      if (rows.length) app.querySelector(`.q[data-qid="checklist"]`)?.classList.add("missing");
+      const first = miss.length ? app.querySelector(`.q[data-qid="${CSS.escape(miss[0].id)}"]`)
+        : rows.length ? app.querySelector(`.cl-row[data-item="${CSS.escape(rows[0].id)}"]`) : null;
+      (first || video).scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     leave();
@@ -587,6 +641,18 @@ function buildPayload() {
     }
     const actionKey = actionKeyOf(t);
     const actionExps = state.assignment?.actionExps?.[actionKey] || s.exp.key;
+    // Action coverage (compound prompts only): each row answered for the left and the right animation.
+    const items = checklistItems(t.checklist);
+    const c = state.coverage?.[t.id] || { left: {}, right: {} };
+    const checklist = items.length ? {
+      relation: t.checklist.relation,
+      items: items.map((it) => ({ id: it.id, kind: it.kind, text: it.text, left: c.left[it.id] ?? null, right: c.right[it.id] ?? null })),
+      // share of requested actions performed (Yes 1, Partly 0.5, No 0; "Cannot judge" left out), and the relation row
+      scores: Object.fromEntries(SIDES.map((side) => [side, {
+        actions: checklistScore(items.filter((it) => it.kind === "action"), c[side]),
+        relation: checklistScore(items.filter((it) => it.kind === "relation"), c[side]),
+      }])),
+    } : null;
     return {
       // `exp` is the experiment this clip was shown in. For actions that exist in
       // several experiments, `actionExps` lists them all (e.g. "ABC") and
@@ -595,7 +661,7 @@ function buildPayload() {
       actionKey, actionExps, sharedAction: actionExps.length > 1,
       trialId: t.id, src: t.src, promptId: t.promptId, prompt: t.prompt, seed: t.seed, k: t.k,
       left: t.left, right: t.right, leftType: t.leftType, rightType: t.rightType,
-      answers, chosen, chosenType,
+      answers, chosen, chosenType, checklist,
       timeMs: m.timeMs || 0, watchedSec: Math.round((m.watchedSec || 0) * 10) / 10,
       fullyWatched: !!m.fullyWatched, usedSlowMo: !!m.usedSlowMo, visits: m.visits || 0,
     };
@@ -622,6 +688,7 @@ function buildPayload() {
     },
     assignment: state.assignment || null,
     questions: Object.fromEntries(exps.map((e) => [e.key, e.questions.map((q) => ({ id: q.id, text: q.text }))])),
+    checklistQuestion: STUDY.checklist.text,
     order: Object.fromEntries(exps.map((e) => [e.key, state.order[e.key] || []])),
     manifestGenerated: manifest.generated || null,
     trials,

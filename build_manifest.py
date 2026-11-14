@@ -13,6 +13,7 @@ Expected video name pattern (the "0000-0299" frame-range suffix is optional):
     └id┘ └──────── prompt slug ───────────┘ └seed┘└k┘    └left method┘   └right method┘
 
 Full prompt text comes from prompts.json (filenames truncate long prompts).
+Compound prompts get an action-coverage checklist from checklists.json.
 
 Optional: to show a "Reference keyframes" strip above a clip, put an image with
 the same name as the video next to it, e.g. "<video name>.png" (or .jpg/.webp).
@@ -97,15 +98,38 @@ def duration_of(path: Path):
         return None
 
 
+def load_checklists(problems):
+    """checklists.json: full prompt sentence -> {relation, actions, relationText?}, keyed here by slug."""
+    path = ROOT / "checklists.json"
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    out = {}
+    for sentence, c in raw.items():
+        if sentence.startswith("_"):
+            continue
+        actions = [a.strip() for a in c.get("actions", []) if a.strip()]
+        relation = c.get("relation")
+        if relation not in ("order", "simultaneous") or len(actions) < 2:
+            problems.append(f"checklists.json: {sentence!r} needs relation 'order'/'simultaneous' and 2+ actions")
+            continue
+        entry = {"relation": relation, "actions": actions}
+        if c.get("relationText"):
+            entry["relationText"] = c["relationText"].strip()
+        out[slugify(sentence)] = {"sentence": sentence, "checklist": entry, "used": False}
+    return out
+
+
 def main() -> int:
     prompts_path = ROOT / "prompts.json"
     prompts = json.loads(prompts_path.read_text(encoding="utf-8")) if prompts_path.exists() else {}
+    problems = []
+    checklists = load_checklists(problems)
 
     manifest = {
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "experiments": {},
     }
-    problems = []
 
     for key, folder in EXPERIMENTS.items():
         exp_dir = ROOT / folder
@@ -149,6 +173,9 @@ def main() -> int:
                     break
 
             left, right = canonical_method(m["left"]), canonical_method(m["right"])
+            cl = checklists.get(slugify(prompt))
+            if cl:
+                cl["used"] = True
             trials.append({
                 "id": f"{key}:{f.stem}",
                 "src": f.relative_to(ROOT).as_posix(),
@@ -165,6 +192,8 @@ def main() -> int:
                 "rightType": method_type(right),
                 "duration": duration_of(f),
                 "keyframes": keyframes,
+                # Compound prompts only: rows of the action-coverage checklist.
+                "checklist": cl["checklist"] if cl else None,
             })
             if "unknown" in (method_type(left), method_type(right)):
                 problems.append(f"[{key}] unknown method type in {f.name} - add it to METHOD_TYPES")
@@ -186,7 +215,8 @@ def main() -> int:
         for t in trials:
             kf = "  +keyframes" if t["keyframes"] else ""
             dur = f"{t['duration']:>5.1f}s" if t["duration"] else "   ? "
-            print(f"   {t['promptId']:>6} {dur}  L={t['left']:<10} R={t['right']:<10} {t['prompt']}{kf}")
+            cl = f"  [checklist: {len(t['checklist']['actions'])} actions, {t['checklist']['relation']}]" if t["checklist"] else ""
+            print(f"   {t['promptId']:>6} {dur}  L={t['left']:<10} R={t['right']:<10} {t['prompt']}{kf}{cl}")
     print(f"\nWrote {out.name} with {total} clips.")
 
     actions = {}
@@ -202,6 +232,13 @@ def main() -> int:
         print(f"{len(shared)} actions appear in several experiments (each participant gets one of them):")
         for k, v in sorted(shared.items()):
             print(f"   {''.join(v['exps']):<4} {v['prompt']}")
+
+    compound = {k for k, v in actions.items() if any(
+        t["checklist"] for e in manifest["experiments"].values() for t in e["trials"] if t["actionKey"] == k)}
+    print(f"{len(compound)} of {len(actions)} actions have an action-coverage checklist (checklists.json).")
+    for c in checklists.values():
+        if not c["used"]:
+            problems.append(f"checklists.json: no clip has the prompt {c['sentence']!r} (check the spelling)")
 
     if problems:
         print("\nCheck these:")

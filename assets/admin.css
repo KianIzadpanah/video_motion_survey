@@ -5,6 +5,9 @@
   --c-motion: #eb6834;
   --c-same: #b5b3ad;
   --c-cannot: #dddcd6;
+  --c-yes: #2f9e69;
+  --c-partly: #e8b33c;
+  --c-no: #d65c5c;
 }
 .admin .head { flex-wrap: wrap; }
 .who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

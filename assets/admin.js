@@ -1,6 +1,7 @@
 import { STUDY } from "../config.js";
 import { firebaseConfigured, getFirestoreKit, getAuthKit } from "./firebase.js";
 import { makePlan, actionGroups, actionKeyOf } from "./plan.js";
+import { SIDES, CL_SCORE, checklistItems, checklistScore } from "./checklist.js";
 
 const root = document.getElementById("admin");
 const tip = document.getElementById("tip");
@@ -13,6 +14,14 @@ const CATS = [
   { key: "same", label: "About the same", color: "var(--c-same)" },
   { key: "cannot", label: "Cannot judge", color: "var(--c-cannot)" },
 ];
+
+const CL_CATS = [
+  { key: "yes", label: "Yes", color: "var(--c-yes)" },
+  { key: "partly", label: "Partly", color: "var(--c-partly)" },
+  { key: "no", label: "No", color: "var(--c-no)" },
+  { key: "cannot", label: "Cannot judge", color: "var(--c-cannot)" },
+];
+const TYPE_LABEL = { video: "Video model", motion: "Motion model" };
 
 let docs = [];
 let user = null;
@@ -190,6 +199,44 @@ function aggregate(list) {
   return { out, pairs };
 }
 
+// Action-coverage checklist: Yes/Partly/No/Cannot counts per experiment × model type and per method,
+// separately for the action rows and the relation row (order / same time).
+function checklistStats(list) {
+  const blank = () => ({ yes: 0, partly: 0, no: 0, cannot: 0, n: 0, sum: 0, scored: 0 });
+  const add = (c, v) => {
+    c.n++;
+    if (v in c) c[v]++;
+    if (v in CL_SCORE) { c.sum += CL_SCORE[v]; c.scored++; }
+  };
+  const byType = {}; // exp -> type -> {action, relation}
+  const byMethod = new Map(); // "exp|method" -> {exp, method, type, clips:Set, action, relation}
+  let clips = 0;
+  for (const d of list) {
+    for (const t of d.trials || []) {
+      if (!t.checklist?.items?.length) continue;
+      clips++;
+      for (const side of SIDES) {
+        const type = t[`${side}Type`] || "unknown";
+        const method = t[side] || "?";
+        const T = ((byType[t.exp] ||= {})[type] ||= { action: blank(), relation: blank() });
+        const mk = `${t.exp}|${method}`;
+        if (!byMethod.has(mk)) byMethod.set(mk, { exp: t.exp, method, type, clips: 0, action: blank(), relation: blank() });
+        const M = byMethod.get(mk);
+        M.clips++;
+        for (const it of t.checklist.items) {
+          const v = it[side];
+          if (v == null) continue;
+          add(T[it.kind] || T.action, v);
+          add(M[it.kind] || M.action, v);
+        }
+      }
+    }
+  }
+  const methods = [...byMethod.values()].sort((a, b) => a.exp.localeCompare(b.exp) || a.type.localeCompare(b.type) || a.method.localeCompare(b.method));
+  return { byType, methods, clips };
+}
+const score = (c) => (c.scored ? `${Math.round((c.sum / c.scored) * 100)}%` : "–");
+
 /* ───────────────────────── Data view ───────────────────────── */
 async function renderData() {
   const list = included();
@@ -201,6 +248,35 @@ async function renderData() {
   const durations = list.map((d) => d.durationSec);
   const latest = list.length ? toDate(list[0].submittedAt) : null;
   const { out, pairs } = aggregate(list);
+  const cl = checklistStats(list);
+
+  const clBar = (label, c) => {
+    const segs = CL_CATS.filter((k) => c[k.key] > 0).map((k) =>
+      `<div class="seg" style="flex:${c[k.key]};background:${k.color}" data-tip="<b>${esc(k.label)}</b><br>${c[k.key]} of ${c.n} ratings (${pct(c[k.key], c.n)}%)"></div>`).join("");
+    return `<div class="qrow">
+      <div class="qrow-top"><span class="qrow-text">${label}</span><span class="qrow-n">n = ${c.n}</span></div>
+      <div class="qrow-bar">
+        <div class="bar ${c.n ? "" : "empty"}" role="img" aria-label="${esc(`yes ${pct(c.yes, c.n)}%, partly ${pct(c.partly, c.n)}%, no ${pct(c.no, c.n)}%, cannot judge ${pct(c.cannot, c.n)}%`)}">${segs}</div>
+        <span class="qrow-sum">Score <b>${score(c)}</b> · Yes <b>${pct(c.yes, c.n)}%</b></span>
+      </div>
+    </div>`;
+  };
+  const clBlocks = STUDY.experiments.filter((exp) => cl.byType[exp.key]).map((exp) => {
+    const types = Object.keys(cl.byType[exp.key]).sort((a, b) => (a === "video" ? -1 : b === "video" ? 1 : a.localeCompare(b)));
+    return `<div class="exp-block"><h3>${esc(exp.title)}</h3>
+      ${types.map((ty) => {
+        const T = cl.byType[exp.key][ty];
+        const name = esc(TYPE_LABEL[ty] || ty);
+        return clBar(`${name}: performs each requested action`, T.action) + clBar(`${name}: actions in the right order / at the same time`, T.relation);
+      }).join("")}
+    </div>`;
+  }).join("");
+  const clMethodRows = cl.methods.map((m) => {
+    const cellN = (c, k) => `<td class="num" title="${c[k]} of ${c.n} ratings">${pct(c[k], c.n)}%</td>`;
+    return `<tr><td>${esc(m.exp)}</td><td>${esc(m.method)}</td><td>${esc(m.type)}</td><td class="num">${m.clips}</td>
+      <td class="num">${m.action.n}</td>${cellN(m.action, "yes")}${cellN(m.action, "partly")}${cellN(m.action, "no")}${cellN(m.action, "cannot")}
+      <td class="num"><b>${score(m.action)}</b></td><td class="num">${m.relation.n}</td><td class="num"><b>${score(m.relation)}</b></td></tr>`;
+  }).join("");
 
   const expBlocks = STUDY.experiments.map((exp) => {
     const qs = exp.questions.map((q, i) => {
@@ -255,6 +331,7 @@ async function renderData() {
       <span class="spacer"></span>
       ${DEMO ? "" : `<button class="btn ghost small" id="refresh">Refresh</button>`}
       <button class="btn ghost small" id="csv">Download CSV</button>
+      <button class="btn ghost small" id="clcsv">Checklist CSV</button>
       <button class="btn primary small" id="json">Download JSON</button>
     </div>
 
@@ -275,6 +352,19 @@ async function renderData() {
         ${CATS.map((k) => `<th class="num"><span class="swatch" style="background:${k.color}"></span>${esc(k.label)}</th>`).join("")}</tr></thead>
       <tbody>${tableRows}</tbody></table></div>
 
+    <h2 class="section-title">Action coverage (compound prompts)</h2>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:-4px 0 12px">For prompts with several actions, raters marked for each animation whether it performs each action
+      (and, in a last row, whether the actions happen in the right order or at the same time).
+      <b>Score</b> = Yes 1, Partly ½, No 0, averaged over ratings ("Cannot judge" left out), i.e. the share of requested actions performed.
+      ${cl.clips} rated clips.</p>
+    <div class="legend">${CL_CATS.map((k) => `<span><i style="background:${k.color}"></i>${esc(k.label)}</span>`).join("")}</div>
+    ${clBlocks || `<p style="color:var(--muted)">No checklist answers yet.</p>`}
+    ${clMethodRows ? `<div class="tbl-wrap" style="margin-top:12px"><table class="tbl">
+      <thead><tr><th>Exp</th><th>Method</th><th>Type</th><th class="num">Clips</th><th class="num">Ratings</th>
+        ${CL_CATS.map((k) => `<th class="num"><span class="swatch" style="background:${k.color}"></span>${esc(k.label)}</th>`).join("")}
+        <th class="num">Action score</th><th class="num">Relation n</th><th class="num">Relation score</th></tr></thead>
+      <tbody>${clMethodRows}</tbody></table></div>` : ""}
+
     <h2 class="section-title">Shared actions: where each was shown</h2>
     <p style="color:var(--ink-2);font-size:14.5px;margin:-4px 0 12px">Each participant sees every action in only one experiment.
       Counts are how many participants saw the action in that experiment (– = the action doesn't exist there).
@@ -294,6 +384,7 @@ async function renderData() {
   document.getElementById("ver").addEventListener("change", (e) => { versionFilter = e.target.value; renderData(); });
   document.getElementById("refresh")?.addEventListener("click", load);
   document.getElementById("csv").addEventListener("click", () => download(toCsv(included()), `responses_${stamp()}.csv`, "text/csv"));
+  document.getElementById("clcsv").addEventListener("click", () => download(toChecklistCsv(included()), `checklist_${stamp()}.csv`, "text/csv"));
   document.getElementById("json").addEventListener("click", () => download(JSON.stringify(included().map(serializable), null, 2), `responses_${stamp()}.json`, "application/json"));
   root.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => removeDoc(b.dataset.del)));
   bindTips();
@@ -332,6 +423,42 @@ function serializable(d) {
   return { ...d, submittedAt: sub ? sub.toISOString() : null };
 }
 
+function cell(v) {
+  if (v == null) return "";
+  const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// One row per participant × compound clip × checklist row × side (left/right).
+function toChecklistCsv(list) {
+  const cols = [
+    "participantId", "studyVersion", "isTest", "experience", "rotation",
+    "exp", "actionKey", "actionExps", "sharedAction", "trialId", "promptId", "prompt", "relation",
+    "itemId", "itemKind", "itemText", "side", "method", "methodType", "answer", "score",
+  ];
+  const rows = [cols.join(",")];
+  for (const d of list) {
+    for (const t of d.trials || []) {
+      for (const it of t.checklist?.items || []) {
+        for (const side of SIDES) {
+          const ans = it[side];
+          const r = {
+            participantId: d.participantId || d.id, studyVersion: d.studyVersion, isTest: !!d.isTest,
+            experience: d.profile?.experience, rotation: d.assignment?.rotation,
+            exp: t.exp, actionKey: t.actionKey || actionKeyOf(t), actionExps: t.actionExps || t.exp,
+            sharedAction: !!(t.actionExps && t.actionExps.length > 1),
+            trialId: t.trialId, promptId: t.promptId, prompt: t.prompt, relation: t.checklist.relation,
+            itemId: it.id, itemKind: it.kind, itemText: it.text,
+            side, method: t[side], methodType: t[`${side}Type`], answer: ans, score: CL_SCORE[ans],
+          };
+          rows.push(cols.map((c) => cell(r[c])).join(","));
+        }
+      }
+    }
+  }
+  return "\ufeff" + rows.join("\r\n");
+}
+
 function toCsv(list) {
   const cols = [
     "participantId", "studyVersion", "isTest", "submittedAt", "startedAt", "durationSec", "experience",
@@ -341,11 +468,6 @@ function toCsv(list) {
     "questionId", "question", "answer", "chosenMethod", "chosenType",
     "trialTimeMs", "watchedSec", "fullyWatched", "usedSlowMo", "urlParams", "feedback",
   ];
-  const cell = (v) => {
-    if (v == null) return "";
-    const s = typeof v === "object" ? JSON.stringify(v) : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
   const qText = {};
   for (const e of STUDY.experiments) for (const q of e.questions) qText[`${e.key}:${q.id}`] = q.text;
   const rows = [cols.join(",")];
@@ -409,7 +531,21 @@ async function demoDocs() {
           chosenType[q.id] = typ;
         });
         const actionKey = actionKeyOf(t);
-        trials.push({ exp: exp.key, actionKey, actionExps: plan.actionExps[actionKey], sharedAction: plan.actionExps[actionKey].length > 1,
+        const items = checklistItems(t.checklist);
+        const c = { left: {}, right: {} };
+        for (const side of SIDES) {
+          const pYes = t[`${side}Type`] === "video" ? 0.7 : 0.45;
+          for (const it of items) c[side][it.id] = pick([["yes", pYes], ["partly", 0.18], ["no", 0.74 - pYes], ["cannot", 0.08]]);
+        }
+        const checklist = items.length ? {
+          relation: t.checklist.relation,
+          items: items.map((it) => ({ id: it.id, kind: it.kind, text: it.text, left: c.left[it.id], right: c.right[it.id] })),
+          scores: Object.fromEntries(SIDES.map((side) => [side, {
+            actions: checklistScore(items.filter((it) => it.kind === "action"), c[side]),
+            relation: checklistScore(items.filter((it) => it.kind === "relation"), c[side]),
+          }])),
+        } : null;
+        trials.push({ checklist, exp: exp.key, actionKey, actionExps: plan.actionExps[actionKey], sharedAction: plan.actionExps[actionKey].length > 1,
           position: i + 1, globalIndex: ++g, trialId: t.id, src: t.src, promptId: t.promptId, prompt: t.prompt,
           seed: t.seed, k: t.k, left: t.left, right: t.right, leftType: t.leftType, rightType: t.rightType,
           answers, chosen, chosenType, timeMs: 20000 + Math.round(Math.random() * 30000), watchedSec: 12, fullyWatched: true, usedSlowMo: Math.random() < 0.3 });

@@ -7,6 +7,17 @@ A static user-study website (GitHub Pages) that stores responses in Firebase Fir
 
 Flow: one welcome page → Experiment A clips → B clips → C clips → optional comment → submit. There are no pages between experiments; the header of each clip shows which experiment it belongs to. Clip order is shuffled **within** each experiment.
 
+### Questions
+Every clip, in every experiment, asks the same three questions, each answered *Left / Right / About the same / Cannot judge*:
+
+| id | question | hint shown |
+|---|---|---|
+| `match` | Which motion better matches the description? | Judge what the person does, not how smooth it looks. |
+| `naturalness` | Which motion looks more like a real person moving? | Think of the overall impression: weight, balance and timing. |
+| `artifacts` | Which motion has fewer visible errors? | Look for sliding feet, floating, shaking, impossible poses or sudden jumps. |
+
+**Compound prompts only** (several actions in one sentence) add an **action-coverage checklist**: *"Does the person perform each part of the description?"* with one row per action plus a last row for how the actions relate ("The actions happen in the described order." / "…at the same time."). Each row is answered separately for the left and the right animation with *Yes / Partly / No / Cannot judge*. The rows come from [checklists.json](checklists.json); 13 of the 26 actions currently have one. Single-action prompts have no checklist.
+
 ### Each action is shown only once per participant
 Some actions exist in several experiments (e.g. the volleyball spike is in A, B and C). Each participant sees every **action** in exactly **one** of those experiments. With the current 38 clips, that is 26 clips per person. "Same action" means the same prompt sentence, not the same ID, because IDs were reused (A141 is bowling in A/B but golf in C).
 
@@ -30,7 +41,8 @@ The dashboard has a **Shared actions** table showing, for every shared action, h
 ```
 index.html          participant site
 admin.html          results dashboard (Google sign-in, CSV/JSON export, delete)
-config.js           ← edit: Firebase keys, wording, questions
+config.js           ← edit: Firebase keys, wording, questions, checklist wording
+checklists.json     ← edit: action rows for each compound prompt
 firestore.rules     ← paste into Firebase (security rules)
 prepare_videos.py   ← run after adding videos: trims + converts to browser-safe format
 build_manifest.py   ← then run this: rebuilds the clip list
@@ -131,7 +143,9 @@ Then send participants the plain link, **without** `?test=1`.
 - headline numbers;
 - per-experiment / per-question bars showing how often the **video model** vs the **motion model** was preferred (plus "same" and "cannot judge");
 - a table view and a participant list with comments;
+- an **Action coverage** section: Yes/Partly/No bars per experiment for video vs motion models (actions and order/timing separately), and a per-method table with the **score** (Yes = 1, Partly = ½, No = 0, averaged, "Cannot judge" left out), i.e. the share of requested actions each method performs;
 - **Download CSV**: one row per participant × clip × question;
+- **Checklist CSV**: one row per participant × compound clip × checklist row × side (columns `itemId` `a1`, `a2`, … or `rel`, `itemKind` action/relation, `itemText`, `side`, `method`, `methodType`, `answer`, `score`);
 - **Download JSON**: the raw documents.
 
 Main CSV columns:
@@ -144,7 +158,7 @@ Main CSV columns:
 | `trialId`, `src` | the exact video file |
 | `promptId`, `prompt`, `seed`, `k` | which clip |
 | `left`, `right`, `leftType`, `rightType` | methods shown on each side (`video` / `motion`) |
-| `questionId` | `match`, `realism`, `smoothness` (A) or `sequence` (B, C) |
+| `questionId` | `match`, `naturalness`, `artifacts` (v2 responses used `realism`, `smoothness`, `sequence`) |
 | `answer` | `left` / `right` / `same` / `cannot` |
 | `chosenMethod`, `chosenType` | the answer translated to the method / category |
 | `trialTimeMs`, `watchedSec`, `fullyWatched`, `usedSlowMo` | engagement checks |
@@ -159,7 +173,7 @@ You can also browse the raw documents in Firebase console → Firestore → **Da
 ## 5. Changing the study
 
 - **Wording, questions, titles, consent text:** edit `config.js`.
-  If you change things after launching, also bump `studyVersion` (currently `"v2"`) so responses can be told apart. The dashboard's **Study version** menu shows the current version by default; choose another version or "All versions" to see older responses.
+  If you change things after launching, also bump `studyVersion` (currently `"v3"`) so responses can be told apart. The dashboard's **Study version** menu shows the current version by default; choose another version or "All versions" to see older responses.
 - **Adding or replacing videos:** put them in `exp A` / `exp B` / `exp C` using the usual naming, e.g.
   `A344_a_person_..._s1234__left-LTX_GVHMR__right-Kimodo.mp4` or `A140_..._H3_s43_LEFT-Kimodo__RIGHT_video_H3.mp4`. Then run
   ```bash
@@ -168,6 +182,7 @@ You can also browse the raw documents in Firebase console → Firestore → **Da
   ```
   and commit/push. `prepare_videos.py` keeps untouched originals in `_originals/` (not uploaded). To trim a clip, add it to `TRIMS` and run it again; it always cuts from the original.
   `build_manifest.py` prints every clip with its length and flags prompts it can't verify. If a filename's prompt is cut off (50+ characters), add the full sentence to `prompts.json`.
+- **Checklist rows:** edit `checklists.json` (key = the full prompt sentence as shown on the site, `relation` = `order` or `simultaneous`, `actions` = the rows, each written to follow "Does the person …"). Remove an entry to drop the checklist for that prompt. Then run `python build_manifest.py`; it prints which clips got a checklist and warns about entries that match no clip.
 - **New method names:** add them to `METHOD_TYPES` in `build_manifest.py` so they're labelled `video` or `motion`.
 - **Reference keyframes (optional):** put an image with the same name as a video next to it (`<video name>.png`). It then appears as a "Reference keyframes" strip above that clip.
 - **Recruiting platforms:** any URL parameters are saved with the response (e.g. Prolific's `?PROLIFIC_PID=...`). Put a completion link in `completionUrl` to show it at the end.

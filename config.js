@@ -18,10 +18,30 @@ export const FIREBASE_CONFIG = {
 };
 
 // 2) Study settings and wording.
+
+// The same three questions are asked on every clip, in every experiment.
+const QUESTIONS = [
+  {
+    id: "match",
+    text: "Which motion better matches the description?",
+    hint: "Judge what the person does, not how smooth it looks.",
+  },
+  {
+    id: "naturalness",
+    text: "Which motion looks more like a real person moving?",
+    hint: "Think of the overall impression: weight, balance and timing.",
+  },
+  {
+    id: "artifacts",
+    text: "Which motion has fewer visible errors?",
+    hint: "Look for sliding feet, floating, shaking, impossible poses or sudden jumps.",
+  },
+];
+
 export const STUDY = {
-  // Bump this (e.g. "v2") if you change the clips or questions after launching,
+  // Bump this (e.g. "v4") if you change the clips or questions after launching,
   // so new responses can be told apart from old ones.
-  studyVersion: "v2",
+  studyVersion: "v3",
 
   // Firestore collection that responses are written to.
   collection: "responses",
@@ -47,6 +67,24 @@ export const STUDY = {
     options: ["Not at all", "A little", "Quite familiar", "Expert"],
   },
 
+  // Action-coverage checklist, shown only for compound prompts (rows come from checklists.json).
+  // Answered separately for the left and the right animation.
+  checklist: {
+    text: "Does the person perform each part of the description?",
+    hint: "Answer separately for the left and the right animation.",
+    options: [
+      { value: "yes", label: "Yes" },
+      { value: "partly", label: "Partly" },
+      { value: "no", label: "No" },
+      { value: "cannot", label: "Cannot judge" },
+    ],
+    // Last row of the checklist, by prompt type.
+    relation: {
+      order: "The actions happen in the described order.",
+      simultaneous: "The actions happen at the same time.",
+    },
+  },
+
   // Answer options for every question.
   options: [
     { value: "left", label: "Left" },
@@ -62,43 +100,19 @@ export const STUDY = {
       key: "A",
       title: "Experiment A — Range",
       subtitle: "Prompt-only motion generation",
-      questions: [
-        { id: "match", text: "Which motion better matches the description?" },
-        {
-          id: "realism",
-          text: "Which motion looks more like a real person moving?",
-          hint: "Look for floating, shaking, stiff body parts, or impossible poses.",
-        },
-        { id: "smoothness", text: "Which motion is smoother and less like a robot?" },
-      ],
+      questions: QUESTIONS,
     },
     {
       key: "B",
       title: "Experiment B — Video-to-Motion",
       subtitle: "Sparse keyframe-guided motion reconstruction",
-      questions: [
-        { id: "match", text: "Which motion better matches the description?" },
-        {
-          id: "realism",
-          text: "Which motion looks more like a real person moving?",
-          hint: "Look for floating, shaking, stiff body parts, or impossible poses.",
-        },
-        { id: "sequence", text: "Which animation better preserves the intended sequence and coordination of movements?" },
-      ],
+      questions: QUESTIONS,
     },
     {
       key: "C",
       title: "Experiment C — Motion-to-Video",
       subtitle: "Video generation conditioned on sparse motion keyframes",
-      questions: [
-        { id: "match", text: "Which motion better matches the description?" },
-        {
-          id: "realism",
-          text: "Which motion looks more like a real person moving?",
-          hint: "Look for floating, shaking, stiff body parts, or impossible poses.",
-        },
-        { id: "sequence", text: "Which animation better preserves the intended sequence and coordination of movements?" },
-      ],
+      questions: QUESTIONS,
     },
   ],
 };
