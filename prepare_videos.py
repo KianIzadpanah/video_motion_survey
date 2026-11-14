@@ -46,7 +46,7 @@ TRIMS = {
     "exp C/A011_a_person_does_calf_raises_H3_s43_k5_LEFT-H3__RIGHT-Kimodo": 5,
     "exp C/A017_a_person_twists_the_torso_left_and_right_H3_s43_k5_LEFT-Kimodo__RIGHT-H3": 5,
     "exp C/A140_a_person_spikes_a_volleyball_H3_s43_LEFT-Kimodo__RIGHT_video_H3": 5,
-    "exp C/A141_a_person_swings_a_golf_club_H3_s43_LEFT-Kimodo__RIGHT_video_H3": 5,
+    "exp C/A141_a_person_rolls_a_bowling_ball_down_a_lane_H3_s43_LEFT-Kimodo__RIGHT_video_H3": 5,
     "exp C/A269_a_person_jumps_over_a_high_bar_H3_s43_k5_LEFT-H3__RIGHT-Kimodo": 5,
     "exp C/A518_a_person_walks_forward_while_carrying_a_box_H3_s43_LEFT-video_H3__RIGHT_Kimodo": 5,
     "exp C/A632_a_person_walks_forward_while_throwing_a_ball_up_an_H3_s43_k5_LEFT-Kimodo__RIGHT-H3": 5,

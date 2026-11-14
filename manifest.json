@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-13T21:24:22+00:00",
+  "generated": "2026-11-14T01:14:05+00:00",
   "experiments": {
     "A": {
       "folder": "exp A",
@@ -564,11 +564,11 @@
           }
         },
         {
-          "id": "C:A141_a_person_swings_a_golf_club_H3_s43_LEFT-Kimodo__RIGHT_video_H3",
-          "src": "exp C/A141_a_person_swings_a_golf_club_H3_s43_LEFT-Kimodo__RIGHT_video_H3.mp4",
+          "id": "C:A141_a_person_rolls_a_bowling_ball_down_a_lane_H3_s43_LEFT-Kimodo__RIGHT_video_H3",
+          "src": "exp C/A141_a_person_rolls_a_bowling_ball_down_a_lane_H3_s43_LEFT-Kimodo__RIGHT_video_H3.mp4",
           "promptId": "A141",
-          "prompt": "A person swings a golf club.",
-          "actionKey": "a_person_swings_a_golf_club",
+          "prompt": "A person rolls a bowling ball down a lane.",
+          "actionKey": "a_person_rolls_a_bowling_ball_down_a_lane",
           "seed": 43,
           "k": null,
           "left": "Kimodo",
