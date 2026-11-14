@@ -16,6 +16,11 @@
     "relation": "order",
     "actions": ["tosses a tennis ball into the air", "serves it with a racket"]
   },
+  "A person stretches after waking up.": {
+    "relation": "order",
+    "actions": ["wakes up", "stretches"],
+    "relationText": "The person wakes up first, then stretches."
+  },
   "A person turns around, then waves.": {
     "relation": "order",
     "actions": ["turns around", "waves"]

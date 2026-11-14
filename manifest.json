@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-14T01:14:05+00:00",
+  "generated": "2026-11-14T01:18:09+00:00",
   "experiments": {
     "A": {
       "folder": "exp A",
@@ -18,7 +18,14 @@
           "rightType": "video",
           "duration": 10.0,
           "keyframes": null,
-          "checklist": null
+          "checklist": {
+            "relation": "order",
+            "actions": [
+              "wakes up",
+              "stretches"
+            ],
+            "relationText": "The person wakes up first, then stretches."
+          }
         },
         {
           "id": "A:A140_a_person_spikes_a_volleyball_H3_s43_LEFT-Kimodo__RIGHT_video_H3",
